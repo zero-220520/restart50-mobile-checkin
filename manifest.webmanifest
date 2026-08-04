@@ -1,0 +1,21 @@
+{
+  "name": "50 天重启人生",
+  "short_name": "50天重启",
+  "description": "一款低压力的 50 天习惯打卡应用。完成 3 项即为合格，漏打不清零。",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#165DFF",
+  "lang": "zh-CN",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
