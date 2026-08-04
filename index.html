@@ -41,8 +41,7 @@
     .today-chip { position:absolute; right:28px; bottom:28px; z-index:1; padding:9px 13px; border:1px solid #ffffff36; background:#ffffff18; color:#fff; border-radius:12px; font-size:13px; }
     button.today-chip { cursor:pointer; transition:background .18s ease,transform .18s ease; }
     button.today-chip:hover { background:#ffffff2c; transform:translateY(-1px); }
-    .install-pill { display:none; align-items:center; gap:7px; margin-top:14px; border:1px solid #ffffff55; background:#fff; color:#165DFF; padding:9px 13px; border-radius:11px; font-size:13px; font-weight:700; cursor:pointer; }
-    .install-pill.show { display:inline-flex; }
+    .install-pill { display:inline-flex; align-items:center; gap:7px; margin-top:14px; border:1px solid #ffffff55; background:#fff; color:#165DFF; padding:9px 13px; border-radius:11px; font-size:13px; font-weight:700; cursor:pointer; }
     .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:22px 0; }
     .metric { position:relative; background:var(--panel); border:1px solid #eef2f7; border-radius:16px; padding:16px; min-height:92px; }
     .metric-label { display:block; color:var(--muted); font-size:12px; margin-bottom:5px; }
@@ -90,7 +89,7 @@
     .modal-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:20px; }
     .modal button { padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:#fff; cursor:pointer; }
     .modal .danger { color:#fff; background:#ee5050; border-color:#ee5050; }
-    @media (max-width:900px) { .app-shell { grid-template-columns:1fr; } .notes { display:none; border:0; } .product { padding-bottom:90px; } .bottom-nav { position:fixed; z-index:6; display:flex; align-items:center; justify-content:space-around; left:0; right:0; bottom:0; height:68px; border-top:1px solid var(--line); background:#fffefeee; backdrop-filter:blur(10px); } .bottom-nav button { border:0; background:none; color:#8c96a8; font-size:11px; cursor:pointer; } .bottom-nav button i { display:block; font-size:17px; margin-bottom:4px; } .bottom-nav button.active { color:var(--blue); } .notes.mobile { display:block; margin-top:25px; border:1px solid #f1e6cf; border-radius:18px; } .app-shell.details-off .notes { display:none; } }
+    @media (max-width:900px) { .app-shell { grid-template-columns:1fr; } .notes { display:none; border:0; } .app-shell.mobile-notes-open .notes { display:block; margin:25px 16px 90px; border:1px solid #f1e6cf; border-radius:18px; } .product { padding-bottom:90px; } .bottom-nav { position:fixed; z-index:6; display:flex; align-items:center; justify-content:space-around; left:0; right:0; bottom:0; height:68px; border-top:1px solid var(--line); background:#fffefeee; backdrop-filter:blur(10px); } .bottom-nav button { border:0; background:none; color:#8c96a8; font-size:11px; cursor:pointer; } .bottom-nav button i { display:block; font-size:17px; margin-bottom:4px; } .bottom-nav button.active { color:var(--blue); } .app-shell.details-off .notes { display:none; } }
     @media (max-width:540px) { .product { padding:18px 16px 90px; } .top { margin-bottom:18px; } .brand { font-size:17px; } .hero { padding:24px 20px 66px; border-radius:20px; } .today-chip { left:20px; right:auto; bottom:20px; } .metrics { gap:8px; } .metric { padding:12px; min-height:80px; } .metric strong { font-size:20px; } .metric i { display:none; } .habit { gap:10px; padding:12px; } .habit-meta { display:none; } .calendar { gap:5px; } }
   </style>
 </head>
@@ -210,16 +209,36 @@
     function modal(title,text,onConfirm){ $('modalTitle').textContent=title;$('modalText').textContent=text;$('modal').classList.add('show');$('modalConfirm').onclick=()=>{$('modal').classList.remove('show');onConfirm()}; }
     $('modalCancel').onclick=()=>$('modal').classList.remove('show');
     $('todayChip').onclick=()=>{ start(); selectedDay=null; render(); };
-    window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt=event; $('installButton').classList.add('show'); });
-    $('installButton').addEventListener('click', async () => { if (!installPrompt) return; installPrompt.prompt(); await installPrompt.userChoice; installPrompt=null; $('installButton').classList.remove('show'); });
-    window.addEventListener('appinstalled', () => { $('installButton').classList.remove('show'); });
+    const installHelp = () => modal('请在浏览器中完成安装','若没有弹出安装窗口，请用 Chrome 打开本页，点击右上角 ⋮，选择“安装应用”或“添加到主屏幕”。微信、QQ 等内置浏览器需要先选择“在浏览器打开”。',()=>{});
+    window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); installPrompt=event; });
+    $('installButton').addEventListener('click', async () => {
+      if (window.matchMedia('(display-mode: standalone)').matches) return modal('已经安装','这个应用已经在手机桌面中，可以直接从桌面打开。',()=>{});
+      if (!installPrompt) return installHelp();
+      try {
+        installPrompt.prompt();
+        const choice = await installPrompt.userChoice;
+        if (choice.outcome !== 'accepted') installHelp();
+      } catch { installHelp(); }
+      finally { installPrompt=null; }
+    });
+    window.addEventListener('appinstalled', () => { installPrompt=null; });
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
     }
     $('startReset').onclick=()=>modal('重新开始挑战？','当前打卡记录会被清除，并从今天设为第 1 天。',()=>{state={startDate:dateKey(new Date()),days:{}};selectedDay=null;save();render();showView('checkinView')});
     $('clearData').onclick=()=>modal('清除所有数据？','这会删除浏览器中保存的全部挑战记录，无法恢复。',()=>{state={startDate:null,days:{}};selectedDay=null;save();render();showView('checkinView')});
     document.querySelectorAll('.bottom-nav button').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
-    $('detailToggle').addEventListener('click',()=>{ const isHidden=$('appShell').classList.toggle('details-off'); $('detailToggle').innerHTML=isHidden?'<i class="fa-regular fa-circle-question"></i> 使用说明':'<i class="fa-solid fa-xmark"></i> 收起说明'; });
+    $('detailToggle').addEventListener('click',()=>{
+      const shell=$('appShell');
+      if (window.matchMedia('(max-width: 900px)').matches) {
+        const isOpen=shell.classList.toggle('mobile-notes-open');
+        $('detailToggle').innerHTML=isOpen?'<i class="fa-solid fa-xmark"></i> 收起说明':'<i class="fa-regular fa-circle-question"></i> 使用说明';
+        if (isOpen) setTimeout(()=>$('notesPanel').scrollIntoView({behavior:'smooth',block:'start'}),0);
+        return;
+      }
+      const isHidden=shell.classList.toggle('details-off');
+      $('detailToggle').innerHTML=isHidden?'<i class="fa-regular fa-circle-question"></i> 使用说明':'<i class="fa-solid fa-xmark"></i> 收起说明';
+    });
     render();
   </script>
 </body>
